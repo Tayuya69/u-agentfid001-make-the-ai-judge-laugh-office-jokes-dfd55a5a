@@ -40,3 +40,41 @@ function main(): void {
 }
 
 main();
+
+// Post-write validation (second write): re-read the produced entry file and
+// assert it is exactly the intended 108-character office-joke line.
+void (async () => {
+  const expectedEntry =
+    "This meeting could have been an email, so we scheduled a follow-up to discuss why it couldn’t have been one.";
+  if (expectedEntry.length !== 108) {
+    throw new Error(`expected entry length is ${expectedEntry.length}, not 108`);
+  }
+  const fsMod = await import("node:fs");
+  const pathMod = await import("node:path");
+  const outDir = process.env.MAKEFUN_OUTPUT_DIR ?? "output";
+  const candidates = [
+    pathMod.join(outDir, "entry.txt"),
+    pathMod.join("output", "entry.txt"),
+    "entry.txt",
+  ];
+  let produced: string | null = null;
+  for (const candidate of candidates) {
+    if (fsMod.existsSync(candidate)) {
+      produced = fsMod.readFileSync(candidate, "utf8").trim();
+      break;
+    }
+  }
+  if (produced === null) {
+    throw new Error(`validation failed: no entry.txt found under ${outDir}`);
+  }
+  if (produced !== expectedEntry) {
+    throw new Error(`validation failed: produced entry differs from expected line: ${JSON.stringify(produced)}`);
+  }
+  if (produced.length !== 108) {
+    throw new Error(`validation failed: produced entry is ${produced.length} chars, expected 108`);
+  }
+  console.error("validation ok: produced entry is exactly the 108-char line");
+})().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
